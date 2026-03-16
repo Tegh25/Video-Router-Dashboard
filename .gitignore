@@ -1,0 +1,25 @@
+# Python cache/bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Environment and secret files
+.env
+.env.*
+*.env
+*.secret
+secrets.*
+
+# Local service config may contain credentials
+nexxroute-ui.service
+
+# Editor / OS noise
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
