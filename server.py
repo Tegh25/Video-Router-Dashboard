@@ -42,10 +42,15 @@ def parse_signal(token: str):
     }
 
 
+def card_from_port(port_id: int) -> int:
+    return ((port_id - 1) // 32) + 1
+
+
 def parse_video_routes(raw_output: str):
     routes = []
     source_set = set()
     destination_set = set()
+    card_set = set()
 
     for raw_line in raw_output.splitlines():
         line = raw_line.strip()
@@ -67,20 +72,25 @@ def parse_video_routes(raw_output: str):
         route = {
             "dst_port": dst["port"],
             "dst_id": dst["id"],
+            "dst_card": card_from_port(dst["port"]),
             "src_port": src["port"],
             "src_id": src["id"],
+            "src_card": card_from_port(src["port"]),
         }
         routes.append(route)
         source_set.add((src["port"], src["id"]))
         destination_set.add((dst["port"], dst["id"]))
+        card_set.add(route["src_card"])
+        card_set.add(route["dst_card"])
 
-    sources = [{"port": p, "id": i} for p, i in sorted(source_set)]
-    destinations = [{"port": p, "id": i} for p, i in sorted(destination_set)]
+    sources = [{"port": p, "id": i, "card": card_from_port(p)} for p, i in sorted(source_set)]
+    destinations = [{"port": p, "id": i, "card": card_from_port(p)} for p, i in sorted(destination_set)]
 
     return {
         "routes": routes,
         "sources": sources,
         "destinations": destinations,
+        "cards": sorted(card_set),
         "fetched_at": now_utc_iso(),
     }
 
@@ -136,6 +146,11 @@ def get_routes_with_cache(force_refresh: bool = False):
 @app.route("/")
 def index():
     return send_from_directory(Path(__file__).resolve().parent, "index.html")
+
+
+@app.route("/styles.css")
+def styles():
+    return send_from_directory(Path(__file__).resolve().parent, "styles.css")
 
 
 @app.route("/api/routes/video", methods=["GET"])

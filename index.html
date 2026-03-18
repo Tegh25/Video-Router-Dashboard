@@ -9,21 +9,73 @@
 <body>
   <main class="shell">
     <header class="topbar">
-      <h1 class="title">NEXX-XC1 Video Router</h1>
+      <h1 class="title">Video Router</h1>
       <div class="meta">
         <span id="liveBadge" class="badge live">Live</span>
         <button id="refreshBtn" class="refresh-btn" type="button">Refresh</button>
       </div>
+      <div class="updated-inline">Last updated: <span id="lastUpdated">--</span></div>
     </header>
 
-    <div class="subbar">
-      Last updated: <span id="lastUpdated">--</span>
-    </div>
-
-    <section class="matrix-wrap" aria-label="Video routing matrix">
-      <div class="matrix-scroller" id="matrixScroller">
-        <div class="empty" id="emptyState">Loading routes...</div>
+    <section class="filters" aria-label="Routing filters">
+      <div class="filter-row">
+        <div class="filter-label">Cards</div>
+        <div class="card-buttons" id="cardButtons"></div>
+        <div class="quick-actions">
+          <button type="button" id="allCardsBtn" class="small-btn">All</button>
+          <button type="button" id="noneCardsBtn" class="small-btn">None</button>
+        </div>
       </div>
+
+      <div class="filter-row">
+        <div class="filter-label">Port range</div>
+        <div class="range-controls">
+          <label for="portFrom">From</label>
+          <input id="portFrom" type="number" min="1" max="384" placeholder="1">
+          <label for="portTo">To</label>
+          <input id="portTo" type="number" min="1" max="384" placeholder="384">
+          <button type="button" id="applyRangeBtn" class="small-btn apply">Apply</button>
+        </div>
+      </div>
+
+      <div class="filter-row">
+        <div class="filter-label">View</div>
+        <div class="view-buttons" id="viewButtons">
+          <button class="small-btn view-btn active" data-view="matrix" type="button">Matrix</button>
+          <button class="small-btn view-btn" data-view="card-pair" type="button">Card-pair</button>
+          <button class="small-btn view-btn" data-view="active-routes" type="button">Active routes</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="matrixView" class="view-panel active" aria-label="Matrix view">
+      <div class="matrix-scroller" id="matrixScroller">
+        <div class="empty">Loading routes...</div>
+      </div>
+    </section>
+
+    <section id="cardPairView" class="view-panel" aria-label="Card pair view">
+      <div class="pair-controls">
+        <label for="srcCardSelect">Source card</label>
+        <select id="srcCardSelect"></select>
+        <label for="dstCardSelect">Destination card</label>
+        <select id="dstCardSelect"></select>
+      </div>
+      <div class="matrix-scroller" id="pairScroller"></div>
+    </section>
+
+    <section id="activeRoutesView" class="view-panel" aria-label="Active routes view">
+      <div class="active-controls">
+        <label for="activeSearch">Search</label>
+        <input id="activeSearch" type="text" placeholder="card or port">
+        <label for="activeSort">Sort by</label>
+        <select id="activeSort">
+          <option value="src-card">Source card</option>
+          <option value="dst-card">Destination card</option>
+          <option value="port">Port</option>
+        </select>
+      </div>
+      <div class="list-scroller" id="activeRoutesContainer"></div>
     </section>
 
     <footer class="status" id="statusText">Selected: none</footer>
@@ -36,23 +88,55 @@
     const refreshBtn = document.getElementById("refreshBtn");
     const liveBadge = document.getElementById("liveBadge");
     const lastUpdated = document.getElementById("lastUpdated");
-    const matrixScroller = document.getElementById("matrixScroller");
     const statusText = document.getElementById("statusText");
+    const cardButtons = document.getElementById("cardButtons");
+    const allCardsBtn = document.getElementById("allCardsBtn");
+    const noneCardsBtn = document.getElementById("noneCardsBtn");
+    const portFromInput = document.getElementById("portFrom");
+    const portToInput = document.getElementById("portTo");
+    const applyRangeBtn = document.getElementById("applyRangeBtn");
+    const viewButtons = document.getElementById("viewButtons");
+    const matrixScroller = document.getElementById("matrixScroller");
+    const pairScroller = document.getElementById("pairScroller");
+    const srcCardSelect = document.getElementById("srcCardSelect");
+    const dstCardSelect = document.getElementById("dstCardSelect");
+    const activeRoutesContainer = document.getElementById("activeRoutesContainer");
+    const activeSearch = document.getElementById("activeSearch");
+    const activeSort = document.getElementById("activeSort");
 
-    let activeRouteMap = new Map();
-    let currentSources = [];
-    let currentDestinations = [];
+    const views = {
+      matrix: document.getElementById("matrixView"),
+      "card-pair": document.getElementById("cardPairView"),
+      "active-routes": document.getElementById("activeRoutesView"),
+    };
+
+    const state = {
+      routes: [],
+      sources: [],
+      destinations: [],
+      cards: [],
+      selectedCards: new Set(),
+      activeRouteMap: new Map(),
+      fromPort: null,
+      toPort: null,
+      activeView: "matrix",
+      srcPairCard: null,
+      dstPairCard: null,
+      searchText: "",
+      sortBy: "src-card",
+      cardsTouched: false,
+    };
 
     function signalKey(port, id) {
       return `${port}:${id}`;
     }
 
-    function signalLabel(item) {
-      return `p${item.port} id${item.id}`;
+    function signalLabel(signal) {
+      return `p${signal.port} id${signal.id} (C${signal.card})`;
     }
 
-    function verboseSignal(item) {
-      return `vid,port${item.port},id${item.id}`;
+    function signalStatusLabel(signal) {
+      return `port ${signal.port} id ${signal.id} (Card ${signal.card})`;
     }
 
     function markLiveState(isLive) {
@@ -64,36 +148,74 @@
       lastUpdated.textContent = text;
     }
 
-    function getMatrixCellStatus(src, dst) {
-      const key = signalKey(dst.port, dst.id);
-      const activeSource = activeRouteMap.get(key);
-
-      if (!activeSource) {
-        return { active: false, activeSource: null };
-      }
-
-      return {
-        active: activeSource.port === src.port && activeSource.id === src.id,
-        activeSource,
-      };
+    function setStatus(text) {
+      statusText.textContent = text;
     }
 
-    function setSelectedStatus(src, dst, isActive) {
-      if (isActive) {
-        statusText.textContent = `Selected: ${verboseSignal(dst)} <- ${verboseSignal(src)} (active)`;
+    function normalizeSignals(data, key) {
+      const signals = Array.isArray(data[key]) ? data[key] : [];
+      return signals
+        .filter((item) => Number.isInteger(item.port) && Number.isInteger(item.id) && Number.isInteger(item.card))
+        .sort((a, b) => (a.card - b.card) || (a.port - b.port) || (a.id - b.id));
+    }
+
+    function hydrateRouteMap(routes) {
+      const map = new Map();
+      routes.forEach((route) => {
+        const valid = ["dst_port", "dst_id", "src_port", "src_id", "dst_card", "src_card"]
+          .every((field) => Number.isInteger(route[field]));
+        if (!valid) {
+          return;
+        }
+        map.set(signalKey(route.dst_port, route.dst_id), {
+          port: route.src_port,
+          id: route.src_id,
+          card: route.src_card,
+        });
+      });
+      state.activeRouteMap = map;
+    }
+
+    function isInRange(port) {
+      const lowPass = state.fromPort == null || port >= state.fromPort;
+      const highPass = state.toPort == null || port <= state.toPort;
+      return lowPass && highPass;
+    }
+
+    function passesFilters(signal) {
+      return state.selectedCards.has(signal.card) && isInRange(signal.port);
+    }
+
+    function buildFilteredSignals() {
+      const sources = state.sources.filter((signal) => passesFilters(signal));
+      const destinations = state.destinations.filter((signal) => passesFilters(signal));
+      return { sources, destinations };
+    }
+
+    function setSelectedStatus(src, dst, active) {
+      if (active) {
+        setStatus(`Selected: ${signalStatusLabel(dst)} <- ${signalStatusLabel(src)} [active]`);
       } else {
-        statusText.textContent = `Selected: ${verboseSignal(src)} is not routed to this destination (${verboseSignal(dst)})`;
+        setStatus(`Selected: ${signalStatusLabel(src)} is not currently routed to this destination`);
       }
     }
 
-    function renderMatrix() {
-      matrixScroller.innerHTML = "";
+    function getCellState(src, dst) {
+      const mappedSource = state.activeRouteMap.get(signalKey(dst.port, dst.id));
+      if (!mappedSource) {
+        return false;
+      }
+      return mappedSource.port === src.port && mappedSource.id === src.id && mappedSource.card === src.card;
+    }
 
-      if (!currentSources.length || !currentDestinations.length) {
+    function renderMatrixInto(container, sources, destinations) {
+      container.innerHTML = "";
+
+      if (!sources.length || !destinations.length) {
         const empty = document.createElement("div");
         empty.className = "empty";
-        empty.textContent = "No video routes discovered in the current snapshot.";
-        matrixScroller.appendChild(empty);
+        empty.textContent = "No matching video routes for the active filters.";
+        container.appendChild(empty);
         return;
       }
 
@@ -106,9 +228,15 @@
       corner.textContent = "src -> dst";
       headerRow.appendChild(corner);
 
-      currentDestinations.forEach((dst) => {
+      let lastDstCard = null;
+      destinations.forEach((dst) => {
         const th = document.createElement("th");
         th.className = "dest";
+        if (lastDstCard !== null && lastDstCard !== dst.card) {
+          th.classList.add("card-break-col");
+        }
+        lastDstCard = dst.card;
+
         const span = document.createElement("span");
         span.textContent = signalLabel(dst);
         th.appendChild(span);
@@ -119,28 +247,39 @@
       table.appendChild(thead);
 
       const tbody = document.createElement("tbody");
+      let lastSrcCard = null;
 
-      currentSources.forEach((src) => {
+      sources.forEach((src) => {
         const row = document.createElement("tr");
+        if (lastSrcCard !== null && lastSrcCard !== src.card) {
+          row.classList.add("card-break-row");
+        }
+        lastSrcCard = src.card;
 
         const rowHead = document.createElement("th");
         rowHead.textContent = signalLabel(src);
         row.appendChild(rowHead);
 
-        currentDestinations.forEach((dst) => {
+        let prevDstCard = null;
+        destinations.forEach((dst) => {
           const td = document.createElement("td");
+          if (prevDstCard !== null && prevDstCard !== dst.card) {
+            td.classList.add("card-break-col");
+          }
+          prevDstCard = dst.card;
+
           const button = document.createElement("button");
           button.type = "button";
           button.className = "cell";
           button.title = `${signalLabel(src)} -> ${signalLabel(dst)}`;
 
-          const cellState = getMatrixCellStatus(src, dst);
-          if (cellState.active) {
+          const isActive = getCellState(src, dst);
+          if (isActive) {
             button.classList.add("active");
           }
 
           button.addEventListener("click", () => {
-            setSelectedStatus(src, dst, cellState.active);
+            setSelectedStatus(src, dst, isActive);
           });
 
           td.appendChild(button);
@@ -151,26 +290,192 @@
       });
 
       table.appendChild(tbody);
-      matrixScroller.appendChild(table);
+      container.appendChild(table);
     }
 
-    function normalizeSignals(data, key) {
-      const signals = Array.isArray(data[key]) ? data[key] : [];
-      return signals
-        .filter((item) => Number.isInteger(item.port) && Number.isInteger(item.id))
-        .sort((a, b) => (a.port - b.port) || (a.id - b.id));
-    }
-
-    function hydrateRouteMap(routes) {
-      const map = new Map();
-      routes.forEach((route) => {
-        const valid = ["dst_port", "dst_id", "src_port", "src_id"].every((field) => Number.isInteger(route[field]));
-        if (!valid) {
-          return;
-        }
-        map.set(signalKey(route.dst_port, route.dst_id), { port: route.src_port, id: route.src_id });
+    function renderCardButtons() {
+      cardButtons.innerHTML = "";
+      state.cards.forEach((card) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `small-btn card-btn ${state.selectedCards.has(card) ? "active" : ""}`;
+        button.textContent = `Card ${card}`;
+        button.addEventListener("click", () => {
+          state.cardsTouched = true;
+          if (state.selectedCards.has(card)) {
+            state.selectedCards.delete(card);
+          } else {
+            state.selectedCards.add(card);
+          }
+          renderCardButtons();
+          renderAllViews();
+        });
+        cardButtons.appendChild(button);
       });
-      activeRouteMap = map;
+    }
+
+    function renderCardPairSelectors() {
+      const options = state.cards.map((card) => `<option value="${card}">Card ${card}</option>`).join("");
+      srcCardSelect.innerHTML = options;
+      dstCardSelect.innerHTML = options;
+
+      if (!state.cards.length) {
+        state.srcPairCard = null;
+        state.dstPairCard = null;
+        return;
+      }
+
+      if (!state.cards.includes(state.srcPairCard)) {
+        state.srcPairCard = state.cards[0];
+      }
+      if (!state.cards.includes(state.dstPairCard)) {
+        state.dstPairCard = state.cards[0];
+      }
+
+      srcCardSelect.value = String(state.srcPairCard);
+      dstCardSelect.value = String(state.dstPairCard);
+    }
+
+    function renderMatrixView() {
+      const filtered = buildFilteredSignals();
+      renderMatrixInto(matrixScroller, filtered.sources, filtered.destinations);
+    }
+
+    function renderCardPairView() {
+      if (!state.cards.length || state.srcPairCard == null || state.dstPairCard == null) {
+        pairScroller.innerHTML = '<div class="empty">No cards available.</div>';
+        return;
+      }
+
+      const sources = state.sources.filter((signal) => signal.card === state.srcPairCard && isInRange(signal.port));
+      const destinations = state.destinations.filter((signal) => signal.card === state.dstPairCard && isInRange(signal.port));
+
+      renderMatrixInto(pairScroller, sources, destinations);
+    }
+
+    function compareRoutes(a, b) {
+      if (state.sortBy === "src-card") {
+        return (a.src_card - b.src_card) || (a.src_port - b.src_port) || (a.src_id - b.src_id);
+      }
+      if (state.sortBy === "dst-card") {
+        return (a.dst_card - b.dst_card) || (a.dst_port - b.dst_port) || (a.dst_id - b.dst_id);
+      }
+      return (a.src_port - b.src_port)
+        || (a.dst_port - b.dst_port)
+        || (a.src_id - b.src_id)
+        || (a.dst_id - b.dst_id);
+    }
+
+    function routeText(route) {
+      return `Card ${route.dst_card} | p${route.dst_port} id${route.dst_id} <- Card ${route.src_card} | p${route.src_port} id${route.src_id}`;
+    }
+
+    function renderActiveRoutesView() {
+      const query = state.searchText.trim().toLowerCase();
+
+      let routes = state.routes.filter((route) => {
+        const nonTrivial = !(route.src_port === route.dst_port && route.src_id === route.dst_id && route.src_card === route.dst_card);
+        if (!nonTrivial) {
+          return false;
+        }
+
+        const cardAllowed = state.selectedCards.has(route.src_card) && state.selectedCards.has(route.dst_card);
+        const rangeAllowed = isInRange(route.src_port) && isInRange(route.dst_port);
+        return cardAllowed && rangeAllowed;
+      });
+
+      if (query) {
+        routes = routes.filter((route) => {
+          const haystack = [
+            String(route.src_card),
+            String(route.dst_card),
+            String(route.src_port),
+            String(route.dst_port),
+            String(route.src_id),
+            String(route.dst_id),
+          ].join(" ").toLowerCase();
+          return haystack.includes(query);
+        });
+      }
+
+      routes.sort(compareRoutes);
+
+      if (!routes.length) {
+        activeRoutesContainer.innerHTML = '<div class="empty">No active non-trivial routes for the current filters.</div>';
+        return;
+      }
+
+      const table = document.createElement("table");
+      table.className = "active-table";
+      const tbody = document.createElement("tbody");
+
+      routes.forEach((route) => {
+        const row = document.createElement("tr");
+        const cell = document.createElement("td");
+        cell.textContent = routeText(route);
+        row.appendChild(cell);
+        tbody.appendChild(row);
+      });
+
+      table.appendChild(tbody);
+      activeRoutesContainer.innerHTML = "";
+      activeRoutesContainer.appendChild(table);
+    }
+
+    function setActiveView(view) {
+      state.activeView = view;
+      Object.entries(views).forEach(([name, section]) => {
+        section.classList.toggle("active", name === view);
+      });
+
+      Array.from(viewButtons.querySelectorAll(".view-btn")).forEach((button) => {
+        button.classList.toggle("active", button.dataset.view === view);
+      });
+    }
+
+    function renderAllViews() {
+      renderMatrixView();
+      renderCardPairView();
+      renderActiveRoutesView();
+    }
+
+    function readRangeInput(input) {
+      const text = input.value.trim();
+      if (!text) {
+        return null;
+      }
+      const parsed = Number(text);
+      if (!Number.isInteger(parsed)) {
+        return NaN;
+      }
+      return parsed;
+    }
+
+    function applyRange() {
+      const from = readRangeInput(portFromInput);
+      const to = readRangeInput(portToInput);
+
+      const validNumbers = [from, to].every((value) => value === null || Number.isInteger(value));
+      if (!validNumbers) {
+        setStatus("Selected: invalid range. Use integers only.");
+        return;
+      }
+
+      const bounded = [from, to].every((value) => value == null || (value >= 1 && value <= 384));
+      if (!bounded) {
+        setStatus("Selected: invalid range. Values must be between 1 and 384.");
+        return;
+      }
+
+      if (from != null && to != null && from > to) {
+        setStatus("Selected: invalid range. From must be less than or equal to To.");
+        return;
+      }
+
+      state.fromPort = from;
+      state.toPort = to;
+      renderAllViews();
+      setStatus("Selected: port range filter applied.");
     }
 
     async function fetchRoutes() {
@@ -184,25 +489,79 @@
           throw new Error(payload.error || "Unknown error");
         }
 
-        const routes = Array.isArray(payload.routes) ? payload.routes : [];
-        currentSources = normalizeSignals(payload, "sources");
-        currentDestinations = normalizeSignals(payload, "destinations");
-        hydrateRouteMap(routes);
-        renderMatrix();
+        state.routes = Array.isArray(payload.routes) ? payload.routes : [];
+        state.sources = normalizeSignals(payload, "sources");
+        state.destinations = normalizeSignals(payload, "destinations");
+        state.cards = Array.isArray(payload.cards)
+          ? payload.cards.filter(Number.isInteger).sort((a, b) => a - b)
+          : [];
+
+        if (!state.cardsTouched) {
+          state.selectedCards = new Set(state.cards);
+        } else {
+          state.selectedCards = new Set([...state.selectedCards].filter((card) => state.cards.includes(card)));
+        }
+
+        hydrateRouteMap(state.routes);
+        renderCardButtons();
+        renderCardPairSelectors();
+        renderAllViews();
 
         updateLastUpdated(payload.fetched_at || new Date().toISOString());
         markLiveState(true);
       } catch (error) {
         markLiveState(false);
         updateLastUpdated(`fetch failed (${new Date().toLocaleTimeString()})`);
-        statusText.textContent = `Selected: data fetch error - ${error.message}`;
+        setStatus(`Selected: data fetch error - ${error.message}`);
       } finally {
         refreshBtn.disabled = false;
       }
     }
 
-    refreshBtn.addEventListener("click", () => {
-      fetchRoutes();
+    refreshBtn.addEventListener("click", fetchRoutes);
+
+    allCardsBtn.addEventListener("click", () => {
+      state.cardsTouched = true;
+      state.selectedCards = new Set(state.cards);
+      renderCardButtons();
+      renderAllViews();
+    });
+
+    noneCardsBtn.addEventListener("click", () => {
+      state.cardsTouched = true;
+      state.selectedCards = new Set();
+      renderCardButtons();
+      renderAllViews();
+    });
+
+    applyRangeBtn.addEventListener("click", applyRange);
+
+    viewButtons.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-view]");
+      if (!button) {
+        return;
+      }
+      setActiveView(button.dataset.view);
+    });
+
+    srcCardSelect.addEventListener("change", () => {
+      state.srcPairCard = Number(srcCardSelect.value);
+      renderCardPairView();
+    });
+
+    dstCardSelect.addEventListener("change", () => {
+      state.dstPairCard = Number(dstCardSelect.value);
+      renderCardPairView();
+    });
+
+    activeSearch.addEventListener("input", () => {
+      state.searchText = activeSearch.value;
+      renderActiveRoutesView();
+    });
+
+    activeSort.addEventListener("change", () => {
+      state.sortBy = activeSort.value;
+      renderActiveRoutesView();
     });
 
     fetchRoutes();
