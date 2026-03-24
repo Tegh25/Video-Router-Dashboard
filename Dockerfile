@@ -7,6 +7,7 @@ RUN pip install -r requirements.txt
 
 COPY server.py .
 COPY index.html .
+COPY styles.css .
 
 EXPOSE 8000
 
