@@ -3,88 +3,243 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Nexxroute Video Router</title>
+  <title>Video Routing Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <!-- Scanline overlay for broadcast CRT aesthetic -->
+  <div class="scanlines" aria-hidden="true"></div>
+
   <main class="shell">
+    <!-- ─── Demo mode banner ─── -->
+    <div id="demoBanner" class="demo-banner" hidden aria-live="polite">
+      <span class="demo-banner-dot" aria-hidden="true"></span>
+      Demo Mode &mdash; synthetic routing data &mdash; no live router connection
+      <span class="demo-banner-dot" aria-hidden="true"></span>
+    </div>
+
+    <!-- ─── Top bar ─── -->
     <header class="topbar">
-      <h1 class="title">Video Router</h1>
-      <div class="meta">
-        <span id="liveBadge" class="badge live">Live</span>
-        <button id="refreshBtn" class="refresh-btn" type="button">Refresh</button>
+      <div class="topbar-left">
+        <div class="logo-mark" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+            <rect x="2" y="2" width="10" height="10" rx="2" fill="var(--cyan)" opacity="0.9"/>
+            <rect x="16" y="2" width="10" height="10" rx="2" fill="var(--cyan)" opacity="0.5"/>
+            <rect x="2" y="16" width="10" height="10" rx="2" fill="var(--cyan)" opacity="0.5"/>
+            <rect x="16" y="16" width="10" height="10" rx="2" fill="var(--cyan)" opacity="0.25"/>
+          </svg>
+        </div>
+        <div class="title-block">
+          <h1 class="title">NEXX Video Router</h1>
+          <span class="subtitle">Video Routing Dashboard</span>
+        </div>
       </div>
-      <div class="updated-inline">Last updated: <span id="lastUpdated">--</span></div>
+      <div class="topbar-right">
+        <div class="stats-strip" id="statsStrip">
+          <div class="stat-chip">
+            <span class="stat-label">Routes</span>
+            <span class="stat-value" id="statRoutes">--</span>
+          </div>
+          <div class="stat-chip">
+            <span class="stat-label">Sources</span>
+            <span class="stat-value" id="statSources">--</span>
+          </div>
+          <div class="stat-chip">
+            <span class="stat-label">Destinations</span>
+            <span class="stat-value" id="statDests">--</span>
+          </div>
+          <div class="stat-chip">
+            <span class="stat-label">Cards</span>
+            <span class="stat-value" id="statCards">--</span>
+          </div>
+        </div>
+        <div class="meta">
+          <span id="liveBadge" class="badge live">
+            <span class="badge-dot"></span>
+            Live
+          </span>
+          <button id="refreshBtn" class="btn-icon" type="button" title="Refresh now">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 1.5v4h4"/><path d="M1.8 10a6 6 0 1 0 .8-4.8L1.5 5.5"/></svg>
+          </button>
+        </div>
+        <div class="updated-inline">Updated: <span id="lastUpdated">--</span></div>
+      </div>
     </header>
 
+    <!-- ─── Filters ─── -->
     <section class="filters" aria-label="Routing filters">
       <div class="filter-row">
-        <div class="filter-label">Cards</div>
+        <div class="filter-label">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="1" y="3" width="6" height="4.5" rx="1"/><rect x="9" y="3" width="6" height="4.5" rx="1"/><rect x="1" y="9.5" width="6" height="4.5" rx="1"/><rect x="9" y="9.5" width="6" height="4.5" rx="1"/></svg>
+          Cards
+        </div>
         <div class="card-buttons" id="cardButtons"></div>
         <div class="quick-actions">
-          <button type="button" id="allCardsBtn" class="small-btn">All</button>
-          <button type="button" id="noneCardsBtn" class="small-btn">None</button>
+          <button type="button" id="allCardsBtn" class="pill-btn">All</button>
+          <button type="button" id="noneCardsBtn" class="pill-btn">None</button>
         </div>
       </div>
 
       <div class="filter-row">
-        <div class="filter-label">Port range</div>
+        <div class="filter-label">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><line x1="2" y1="8" x2="14" y2="8"/><circle cx="5" cy="8" r="2" fill="var(--surface-2)"/><circle cx="11" cy="8" r="2" fill="var(--surface-2)"/></svg>
+          Port Range
+        </div>
         <div class="range-controls">
-          <label for="portFrom">From</label>
-          <input id="portFrom" type="number" min="1" max="384" placeholder="1">
-          <label for="portTo">To</label>
-          <input id="portTo" type="number" min="1" max="384" placeholder="384">
-          <button type="button" id="applyRangeBtn" class="small-btn apply">Apply</button>
+          <input id="portFrom" type="number" min="1" max="384" placeholder="1" aria-label="From Port ID">
+          <span class="range-sep">—</span>
+          <input id="portTo" type="number" min="1" max="384" placeholder="384" aria-label="To Port ID">
+          <button type="button" id="applyRangeBtn" class="pill-btn accent">Apply</button>
+          <button type="button" id="clearRangeBtn" class="pill-btn dim">Clear</button>
         </div>
       </div>
 
       <div class="filter-row">
-        <div class="filter-label">View</div>
+        <div class="filter-label">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="1" y="1" width="14" height="14" rx="2"/><line x1="1" y1="5.5" x2="15" y2="5.5"/><line x1="5.5" y1="5.5" x2="5.5" y2="15"/></svg>
+          View
+        </div>
         <div class="view-buttons" id="viewButtons">
-          <button class="small-btn view-btn active" data-view="matrix" type="button">Matrix</button>
-          <button class="small-btn view-btn" data-view="card-pair" type="button">Card-pair</button>
-          <button class="small-btn view-btn" data-view="active-routes" type="button">Active routes</button>
+          <button class="tab-btn active" data-view="matrix" type="button">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="14" height="14" rx="1"/><line x1="1" y1="5.5" x2="15" y2="5.5"/><line x1="1" y1="10.5" x2="15" y2="10.5"/><line x1="5.5" y1="1" x2="5.5" y2="15"/><line x1="10.5" y1="1" x2="10.5" y2="15"/></svg>
+            Matrix
+          </button>
+          <button class="tab-btn" data-view="card-pair" type="button">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="2" width="5" height="12" rx="1"/><rect x="10" y="2" width="5" height="12" rx="1"/><path d="M6 8h4" stroke-dasharray="2 1"/></svg>
+            Card-Pair
+          </button>
+          <button class="tab-btn" data-view="active-routes" type="button">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><line x1="1" y1="4" x2="15" y2="4"/><line x1="1" y1="8" x2="15" y2="8"/><line x1="1" y1="12" x2="11" y2="12"/></svg>
+            Active Routes
+          </button>
         </div>
       </div>
     </section>
 
+    <!-- ─── Set Route Input ─── -->
+    <section class="set-route-panel" aria-label="Set route">
+      <div class="filter-row">
+        <div class="filter-label">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 1v14"/><path d="M1 8h14"/></svg>
+          Set Route
+        </div>
+        <div class="set-route-modes">
+          <button class="pill-btn active" id="modePortId" data-input-mode="port-id" type="button">By Port ID</button>
+          <button class="pill-btn" id="modeCardRel" data-input-mode="card-rel" type="button">By Card + Port</button>
+        </div>
+      </div>
+      <div class="set-route-forms">
+        <div class="route-input-row" id="portIdForm">
+          <label for="destPortInput">Dest Port</label>
+          <input type="number" id="destPortInput" min="1" max="384" placeholder="1–384">
+          <span class="range-sep">&larr;</span>
+          <label for="srcPortInput">Src Port</label>
+          <input type="number" id="srcPortInput" min="0" max="384" placeholder="0–384 (0=remove)">
+          <button type="button" class="pill-btn accent" id="addRouteByIdBtn">+ Queue</button>
+          <button type="button" class="pill-btn remove-btn" id="removeRouteByIdBtn">− Remove</button>
+        </div>
+        <div class="route-input-row" id="cardRelForm" hidden>
+          <label for="destCardInput">Dest Card</label>
+          <input type="number" id="destCardInput" min="1" max="12" placeholder="1–12">
+          <label for="destRelInput">Port</label>
+          <input type="number" id="destRelInput" min="1" max="32" placeholder="1–32">
+          <span class="range-sep">&larr;</span>
+          <label for="srcCardInput">Src Card</label>
+          <input type="number" id="srcCardInput" min="1" max="12" placeholder="1–12">
+          <label for="srcRelInput">Port</label>
+          <input type="number" id="srcRelInput" min="1" max="32" placeholder="1–32">
+          <button type="button" class="pill-btn accent" id="addRouteByCardBtn">+ Queue</button>
+          <button type="button" class="pill-btn remove-btn" id="removeRouteByCardBtn">− Remove</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── Matrix View ─── -->
     <section id="matrixView" class="view-panel active" aria-label="Matrix view">
       <div class="matrix-scroller" id="matrixScroller">
-        <div class="empty">Loading routes...</div>
+        <div class="empty">
+          <div class="empty-icon">
+            <svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="var(--muted)" stroke-width="1.5"><rect x="4" y="4" width="32" height="32" rx="4"/><line x1="4" y1="14" x2="36" y2="14"/><line x1="14" y1="4" x2="14" y2="36"/></svg>
+          </div>
+          Waiting for route data…
+        </div>
       </div>
     </section>
 
+    <!-- ─── Card-Pair View ─── -->
     <section id="cardPairView" class="view-panel" aria-label="Card pair view">
       <div class="pair-controls">
-        <label for="srcCardSelect">Source card</label>
+        <label for="srcCardSelect">Source Card</label>
         <select id="srcCardSelect"></select>
-        <label for="dstCardSelect">Destination card</label>
+        <span class="arrow-sep">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="var(--cyan)" stroke-width="2" stroke-linecap="round"><line x1="2" y1="9" x2="16" y2="9"/><polyline points="11,4 16,9 11,14"/></svg>
+        </span>
+        <label for="dstCardSelect">Dest Card</label>
         <select id="dstCardSelect"></select>
       </div>
       <div class="matrix-scroller" id="pairScroller"></div>
     </section>
 
+    <!-- ─── Active Routes View ─── -->
     <section id="activeRoutesView" class="view-panel" aria-label="Active routes view">
       <div class="active-controls">
-        <label for="activeSearch">Search</label>
-        <input id="activeSearch" type="text" placeholder="card or port">
-        <label for="activeSort">Sort by</label>
+        <div class="search-box">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="6.5" cy="6.5" r="5"/><line x1="10" y1="10" x2="14.5" y2="14.5"/></svg>
+          <input id="activeSearch" type="text" placeholder="Search by card or port ID…">
+        </div>
+        <label for="activeSort">Sort</label>
         <select id="activeSort">
           <option value="src-card">Source card</option>
-          <option value="dst-card">Destination card</option>
-          <option value="port">Port</option>
+          <option value="dst-card">Dest card</option>
+          <option value="port">Port ID</option>
         </select>
       </div>
       <div class="list-scroller" id="activeRoutesContainer"></div>
     </section>
 
-    <footer class="status" id="statusText">Selected: none</footer>
+    <!-- ─── Route Queue ─── -->
+    <section class="queue-panel" id="queuePanel" hidden aria-label="Pending routes">
+      <div class="queue-header">
+        <div class="queue-title">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 4h12"/><path d="M2 8h12"/><path d="M2 12h8"/></svg>
+          Pending Routes
+          <span class="queue-count" id="queueCount">0</span>
+        </div>
+        <div class="queue-actions">
+          <button type="button" class="pill-btn dim" id="clearQueueBtn">Clear All</button>
+          <button type="button" class="apply-btn" id="applyRoutesBtn">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="2,8 6,12 14,4"/></svg>
+            Apply Routes
+          </button>
+        </div>
+      </div>
+      <div class="queue-list" id="queueList"></div>
+      <div class="queue-status" id="queueStatus"></div>
+    </section>
+
+    <!-- ─── Status bar ─── -->
+    <footer class="status" id="statusBar">
+      <svg class="status-icon" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="7"/><line x1="8" y1="5" x2="8" y2="8.5"/><circle cx="8" cy="11" r="0.5" fill="currentColor"/></svg>
+      <span id="statusText">Click any matrix cell to queue a route</span>
+    </footer>
   </main>
 
   <script>
+    /* ──────────────────────────────────────
+       Video Router — Dashboard Logic
+       ────────────────────────────────────── */
     const API_URL = "/api/routes/video";
     const POLL_INTERVAL_MS = 5000;
 
+    /* ── Toggle this flag to enable / disable demo mode ──────────────
+       DEMO_MODE = true  → UI runs on generated synthetic data (no server needed)
+       DEMO_MODE = false → UI fetches live data from the Flask server            */
+    const DEMO_MODE = false;
+
+    /* ─── Element refs ─── */
     const refreshBtn = document.getElementById("refreshBtn");
     const liveBadge = document.getElementById("liveBadge");
     const lastUpdated = document.getElementById("lastUpdated");
@@ -95,6 +250,7 @@
     const portFromInput = document.getElementById("portFrom");
     const portToInput = document.getElementById("portTo");
     const applyRangeBtn = document.getElementById("applyRangeBtn");
+    const clearRangeBtn = document.getElementById("clearRangeBtn");
     const viewButtons = document.getElementById("viewButtons");
     const matrixScroller = document.getElementById("matrixScroller");
     const pairScroller = document.getElementById("pairScroller");
@@ -103,6 +259,10 @@
     const activeRoutesContainer = document.getElementById("activeRoutesContainer");
     const activeSearch = document.getElementById("activeSearch");
     const activeSort = document.getElementById("activeSort");
+    const statRoutes = document.getElementById("statRoutes");
+    const statSources = document.getElementById("statSources");
+    const statDests = document.getElementById("statDests");
+    const statCards = document.getElementById("statCards");
 
     const views = {
       matrix: document.getElementById("matrixView"),
@@ -110,6 +270,7 @@
       "active-routes": document.getElementById("activeRoutesView"),
     };
 
+    /* ─── App state ─── */
     const state = {
       routes: [],
       sources: [],
@@ -125,23 +286,90 @@
       searchText: "",
       sortBy: "src-card",
       cardsTouched: false,
+      pendingRoutes: [],
     };
 
-    function signalKey(port, id) {
-      return `${port}:${id}`;
+    /* ─── Demo data generator ─── */
+    function generateDummyData() {
+      const NUM_CARDS    = 4;
+      const CGES_PER_CARD = 4;
+      const CHS          = 8;
+
+      const cards = Array.from({ length: NUM_CARDS }, (_, i) => i + 1);
+
+      // Build the complete signal list for all cards
+      const allSignals = [];
+      cards.forEach(card => {
+        const startCge = (card - 1) * CGES_PER_CARD + 1;
+        for (let cge = startCge; cge < startCge + CGES_PER_CARD; cge++) {
+          for (let ch = 0; ch < CHS; ch++) {
+            allSignals.push({ cge, ch, card });
+          }
+        }
+      });
+
+      // Deterministic routing pattern: ~70% of destinations are routed;
+      // sources are spread across all cards to exercise cross-card routing.
+      const routes = [];
+      allSignals.forEach((dst, idx) => {
+        if ((idx * 7 + 3) % 10 < 7) {
+          const srcIdx = (idx * 13 + 17) % allSignals.length;
+          const src = allSignals[srcIdx];
+          routes.push({
+            dst_cge: dst.cge, dst_ch: dst.ch, dst_card: dst.card,
+            src_cge: src.cge, src_ch: src.ch, src_card: src.card,
+          });
+        }
+      });
+
+      const srcKeys = new Set(routes.map(r => `${r.src_cge}:${r.src_ch}:${r.src_card}`));
+      const dstKeys = new Set(routes.map(r => `${r.dst_cge}:${r.dst_ch}:${r.dst_card}`));
+
+      const sources = [...srcKeys].map(k => {
+        const [cge, ch, card] = k.split(':').map(Number);
+        return { cge, ch, card };
+      }).sort((a, b) => (a.card - b.card) || (a.cge - b.cge) || (a.ch - b.ch));
+
+      const destinations = [...dstKeys].map(k => {
+        const [cge, ch, card] = k.split(':').map(Number);
+        return { cge, ch, card };
+      }).sort((a, b) => (a.card - b.card) || (a.cge - b.cge) || (a.ch - b.ch));
+
+      return { routes, sources, destinations, cards, fetched_at: new Date().toISOString() };
+    }
+
+    /* ─── Helpers ─── */
+    function portId(cge, ch) {
+      return (cge - 1) * 8 + ch + 1;
+    }
+
+    function signalKey(cge, ch) {
+      return `${cge}:${ch}`;
+    }
+
+    function relPort(cge, ch) {
+      return ((portId(cge, ch) - 1) % 32) + 1;
     }
 
     function signalLabel(signal) {
-      return `p${signal.port} id${signal.id} (C${signal.card})`;
+      return `Port ${portId(signal.cge, signal.ch)} (C${signal.card})`;
+    }
+
+    function signalLabelIn(signal) {
+      return `Port ${portId(signal.cge, signal.ch)} (C${signal.card} IN${relPort(signal.cge, signal.ch)})`;
+    }
+
+    function signalLabelOut(signal) {
+      return `Port ${portId(signal.cge, signal.ch)} (C${signal.card} OUT${relPort(signal.cge, signal.ch)})`;
     }
 
     function signalStatusLabel(signal) {
-      return `port ${signal.port} id ${signal.id} (Card ${signal.card})`;
+      return `Port ${portId(signal.cge, signal.ch)} (Card ${signal.card})`;
     }
 
     function markLiveState(isLive) {
       liveBadge.className = `badge ${isLive ? "live" : "stale"}`;
-      liveBadge.textContent = isLive ? "Live" : "Stale";
+      liveBadge.innerHTML = `<span class="badge-dot"></span>${isLive ? "Live" : "Stale"}`;
     }
 
     function updateLastUpdated(text) {
@@ -152,69 +380,311 @@
       statusText.textContent = text;
     }
 
+    function updateStats() {
+      statRoutes.textContent = state.routes.length;
+      statSources.textContent = state.sources.length;
+      statDests.textContent = state.destinations.length;
+      statCards.textContent = state.cards.length;
+    }
+
     function normalizeSignals(data, key) {
       const signals = Array.isArray(data[key]) ? data[key] : [];
       return signals
-        .filter((item) => Number.isInteger(item.port) && Number.isInteger(item.id) && Number.isInteger(item.card))
-        .sort((a, b) => (a.card - b.card) || (a.port - b.port) || (a.id - b.id));
+        .filter((item) => Number.isInteger(item.cge) && Number.isInteger(item.ch) && Number.isInteger(item.card))
+        .sort((a, b) => (a.card - b.card) || (a.cge - b.cge) || (a.ch - b.ch));
     }
 
     function hydrateRouteMap(routes) {
       const map = new Map();
       routes.forEach((route) => {
-        const valid = ["dst_port", "dst_id", "src_port", "src_id", "dst_card", "src_card"]
+        const valid = ["dst_cge", "dst_ch", "src_cge", "src_ch", "dst_card", "src_card"]
           .every((field) => Number.isInteger(route[field]));
         if (!valid) {
           return;
         }
-        map.set(signalKey(route.dst_port, route.dst_id), {
-          port: route.src_port,
-          id: route.src_id,
+        map.set(signalKey(route.dst_cge, route.dst_ch), {
+          cge: route.src_cge,
+          ch: route.src_ch,
           card: route.src_card,
         });
       });
       state.activeRouteMap = map;
     }
 
-    function isInRange(port) {
-      const lowPass = state.fromPort == null || port >= state.fromPort;
-      const highPass = state.toPort == null || port <= state.toPort;
+    function isInRange(signal) {
+      const pid = portId(signal.cge, signal.ch);
+      const lowPass = state.fromPort == null || pid >= state.fromPort;
+      const highPass = state.toPort == null || pid <= state.toPort;
+      return lowPass && highPass;
+    }
+
+    function isRouteInRange(cge, ch) {
+      const pid = portId(cge, ch);
+      const lowPass = state.fromPort == null || pid >= state.fromPort;
+      const highPass = state.toPort == null || pid <= state.toPort;
       return lowPass && highPass;
     }
 
     function passesFilters(signal) {
-      return state.selectedCards.has(signal.card) && isInRange(signal.port);
+      return state.selectedCards.has(signal.card) && isInRange(signal);
+    }
+
+    /* Generate all 32 ports for a given card number */
+    function generateCardPorts(card) {
+      const ports = [];
+      const startCge = (card - 1) * 4 + 1;
+      for (let cge = startCge; cge < startCge + 4; cge++) {
+        for (let ch = 0; ch < 8; ch++) {
+          ports.push({ cge, ch, card });
+        }
+      }
+      return ports;
     }
 
     function buildFilteredSignals() {
-      const sources = state.sources.filter((signal) => passesFilters(signal));
-      const destinations = state.destinations.filter((signal) => passesFilters(signal));
-      return { sources, destinations };
+      const selectedSorted = [...state.selectedCards].sort((a, b) => a - b);
+      let allPorts = [];
+      selectedSorted.forEach(card => allPorts.push(...generateCardPorts(card)));
+      allPorts = allPorts.filter(s => isInRange(s));
+      return { sources: allPorts, destinations: allPorts };
     }
 
     function setSelectedStatus(src, dst, active) {
       if (active) {
-        setStatus(`Selected: ${signalStatusLabel(dst)} <- ${signalStatusLabel(src)} [active]`);
+        setStatus(`${signalStatusLabel(dst)}  ←  ${signalStatusLabel(src)}  [ ACTIVE ]`);
       } else {
-        setStatus(`Selected: ${signalStatusLabel(src)} is not currently routed to this destination`);
+        setStatus(`${signalStatusLabel(src)} is not currently routed to this destination`);
       }
+    }
+
+    /* ─── Route queue management ─── */
+    function portIdToCard(pid) {
+      return ((pid - 1) / 32 | 0) + 1;
+    }
+
+    function portIdToLabel(pid) {
+      if (pid === 0) return "DISCONNECT";
+      return `Port ${pid} (C${portIdToCard(pid)})`;
+    }
+
+    function isRoutePending(destPid, srcPid) {
+      return state.pendingRoutes.some(r => r.dest === destPid && r.src === srcPid);
+    }
+
+    function isRemovalPending(destPid) {
+      return state.pendingRoutes.some(r => r.dest === destPid && r.src === 0);
+    }
+
+    function addToQueue(dest, src, destLabel, srcLabel) {
+      if (!isRoutePending(dest, src)) {
+        state.pendingRoutes.push({ dest, src, destLabel, srcLabel });
+        renderQueuePanel();
+      }
+    }
+
+    function removeFromQueue(dest, src) {
+      state.pendingRoutes = state.pendingRoutes.filter(r => !(r.dest === dest && r.src === src));
+      renderQueuePanel();
+    }
+
+    function clearQueue() {
+      state.pendingRoutes = [];
+      renderQueuePanel();
+      renderAllViews();
+    }
+
+    function renderQueuePanel() {
+      const panel = document.getElementById("queuePanel");
+      const list = document.getElementById("queueList");
+      const count = document.getElementById("queueCount");
+      const statusEl = document.getElementById("queueStatus");
+
+      if (state.pendingRoutes.length === 0) {
+        panel.hidden = true;
+        return;
+      }
+
+      panel.hidden = false;
+      count.textContent = state.pendingRoutes.length;
+
+      list.innerHTML = "";
+      state.pendingRoutes.forEach((route) => {
+        const isRemoval = route.src === 0;
+        const item = document.createElement("div");
+        item.className = `queue-item${isRemoval ? " queue-item-removal" : ""}`;
+        const srcDisplay = isRemoval
+          ? '<span class="queue-disconnect">DISCONNECT</span>'
+          : `<span class="queue-src">${route.srcLabel}</span>`;
+        const cmdLabel = `.SV${route.dest},${route.src}`;
+        item.innerHTML = `
+          <span class="queue-route-info">
+            <span class="queue-dest">${route.destLabel}</span>
+            <svg width="16" height="10" viewBox="0 0 16 10" fill="none" stroke="${isRemoval ? 'var(--error)' : 'var(--cyan)'}" stroke-width="1.5" stroke-linecap="round"><line x1="2" y1="5" x2="14" y2="5"/><polyline points="6,1 2,5 6,9"/></svg>
+            ${srcDisplay}
+          </span>
+          <span class="queue-command${isRemoval ? ' queue-command-removal' : ''}">${cmdLabel}</span>
+          <button type="button" class="queue-remove-btn" data-dest="${route.dest}" data-src="${route.src}" title="Remove from queue">&times;</button>
+        `;
+        list.appendChild(item);
+      });
+    }
+
+    async function applyRoutes() {
+      if (state.pendingRoutes.length === 0) return;
+
+      const applyBtn = document.getElementById("applyRoutesBtn");
+      const statusEl = document.getElementById("queueStatus");
+      applyBtn.disabled = true;
+      applyBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="2,8 6,12 14,4"/></svg> Applying\u2026';
+      statusEl.textContent = "";
+      statusEl.className = "queue-status";
+
+      const results = [];
+      for (const route of [...state.pendingRoutes]) {
+        try {
+          const resp = await fetch("/api/routes/video/set", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ dest: route.dest, src: route.src }),
+          });
+          const data = await resp.json();
+          if (resp.ok && data.ok) {
+            results.push({ route, success: true });
+          } else {
+            results.push({ route, success: false, error: data.error || "Unknown error" });
+          }
+        } catch (err) {
+          results.push({ route, success: false, error: err.message });
+        }
+      }
+
+      const succeeded = results.filter(r => r.success).length;
+      const failed = results.filter(r => !r.success).length;
+
+      state.pendingRoutes = results.filter(r => !r.success).map(r => r.route);
+
+      if (failed > 0) {
+        statusEl.textContent = `${succeeded} applied, ${failed} failed \u2014 check connection`;
+        statusEl.className = "queue-status has-errors";
+      } else {
+        statusEl.textContent = `${succeeded} route(s) applied successfully`;
+        statusEl.className = "queue-status all-ok";
+        setTimeout(() => { statusEl.textContent = ""; statusEl.className = "queue-status"; }, 4000);
+      }
+
+      applyBtn.disabled = false;
+      applyBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="2,8 6,12 14,4"/></svg> Apply Routes';
+      renderQueuePanel();
+      await fetchRoutes();
+    }
+
+    function addRouteByPortId() {
+      const destInput = document.getElementById("destPortInput");
+      const srcInput = document.getElementById("srcPortInput");
+      const dest = parseInt(destInput.value, 10);
+      const src = parseInt(srcInput.value, 10);
+
+      if (isNaN(dest) || isNaN(src) || dest < 1 || dest > 384 || src < 0 || src > 384) {
+        setStatus("Invalid port IDs \u2014 must be integers between 1 and 384 (dest) and 0 and 384 (src).");
+        return;
+      }
+
+      addToQueue(dest, src, portIdToLabel(dest), portIdToLabel(src));
+      setStatus(`Queued: Port ${src} \u2192 Port ${dest}`);
+      destInput.value = "";
+      srcInput.value = "";
+    }
+
+    function addRouteByCard() {
+      const dc = parseInt(document.getElementById("destCardInput").value, 10);
+      const dr = parseInt(document.getElementById("destRelInput").value, 10);
+      const sc = parseInt(document.getElementById("srcCardInput").value, 10);
+      const sr = parseInt(document.getElementById("srcRelInput").value, 10);
+
+      if ([dc, dr, sc, sr].some(isNaN)) {
+        setStatus("All card and port fields are required.");
+        return;
+      }
+      if (dc < 1 || dc > 12 || sc < 1 || sc > 12) {
+        setStatus("Card numbers must be between 1 and 12.");
+        return;
+      }
+      if (dr < 1 || dr > 32 || sr < 1 || sr > 32) {
+        setStatus("Relative port numbers must be between 1 and 32.");
+        return;
+      }
+
+      const dest = (dc - 1) * 32 + dr;
+      const src = (sc - 1) * 32 + sr;
+      addToQueue(dest, src, portIdToLabel(dest), portIdToLabel(src));
+      if (src === 0) {
+        setStatus(`Queued removal: C${dc} Port ${dr}`);
+      } else {
+        setStatus(`Queued: C${sc} Port ${sr} \u2192 C${dc} Port ${dr}`);
+      }
+      document.getElementById("destCardInput").value = "";
+      document.getElementById("destRelInput").value = "";
+      document.getElementById("srcCardInput").value = "";
+      document.getElementById("srcRelInput").value = "";
+    }
+
+    function removeRouteByPortId() {
+      const destInput = document.getElementById("destPortInput");
+      const dest = parseInt(destInput.value, 10);
+      if (isNaN(dest) || dest < 1 || dest > 384) {
+        setStatus("Invalid dest port ID \u2014 must be 1\u2013384.");
+        return;
+      }
+      addToQueue(dest, 0, portIdToLabel(dest), "DISCONNECT");
+      setStatus(`Queued removal: Port ${dest}`);
+      destInput.value = "";
+      document.getElementById("srcPortInput").value = "";
+    }
+
+    function removeRouteByCard() {
+      const dc = parseInt(document.getElementById("destCardInput").value, 10);
+      const dr = parseInt(document.getElementById("destRelInput").value, 10);
+      if (isNaN(dc) || isNaN(dr)) {
+        setStatus("Dest card and port are required to remove a route.");
+        return;
+      }
+      if (dc < 1 || dc > 12) {
+        setStatus("Card number must be between 1 and 12.");
+        return;
+      }
+      if (dr < 1 || dr > 32) {
+        setStatus("Relative port must be between 1 and 32.");
+        return;
+      }
+      const dest = (dc - 1) * 32 + dr;
+      addToQueue(dest, 0, portIdToLabel(dest), "DISCONNECT");
+      setStatus(`Queued removal: C${dc} Port ${dr}`);
+      document.getElementById("destCardInput").value = "";
+      document.getElementById("destRelInput").value = "";
+      document.getElementById("srcCardInput").value = "";
+      document.getElementById("srcRelInput").value = "";
     }
 
     function getCellState(src, dst) {
-      const mappedSource = state.activeRouteMap.get(signalKey(dst.port, dst.id));
+      const mappedSource = state.activeRouteMap.get(signalKey(dst.cge, dst.ch));
       if (!mappedSource) {
         return false;
       }
-      return mappedSource.port === src.port && mappedSource.id === src.id && mappedSource.card === src.card;
+      return mappedSource.cge === src.cge && mappedSource.ch === src.ch && mappedSource.card === src.card;
     }
 
+    /* ─── Matrix renderer ─── */
     function renderMatrixInto(container, sources, destinations) {
       container.innerHTML = "";
 
       if (!sources.length || !destinations.length) {
         const empty = document.createElement("div");
         empty.className = "empty";
-        empty.textContent = "No matching video routes for the active filters.";
+        empty.innerHTML = `
+          <div class="empty-icon">
+            <svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="var(--muted)" stroke-width="1.5"><rect x="4" y="4" width="32" height="32" rx="4"/><line x1="4" y1="14" x2="36" y2="14"/><line x1="14" y1="4" x2="14" y2="36"/></svg>
+          </div>
+          No matching video routes for the active filters.`;
         container.appendChild(empty);
         return;
       }
@@ -225,7 +695,7 @@
 
       const corner = document.createElement("th");
       corner.className = "corner";
-      corner.textContent = "src -> dst";
+      corner.innerHTML = '<span class="corner-label">SRC &#8594; DST</span>';
       headerRow.appendChild(corner);
 
       let lastDstCard = null;
@@ -238,7 +708,7 @@
         lastDstCard = dst.card;
 
         const span = document.createElement("span");
-        span.textContent = signalLabel(dst);
+        span.textContent = signalLabelOut(dst);
         th.appendChild(span);
         headerRow.appendChild(th);
       });
@@ -257,7 +727,7 @@
         lastSrcCard = src.card;
 
         const rowHead = document.createElement("th");
-        rowHead.textContent = signalLabel(src);
+        rowHead.textContent = signalLabelIn(src);
         row.appendChild(rowHead);
 
         let prevDstCard = null;
@@ -271,15 +741,44 @@
           const button = document.createElement("button");
           button.type = "button";
           button.className = "cell";
-          button.title = `${signalLabel(src)} -> ${signalLabel(dst)}`;
+          button.title = `${signalLabelIn(src)} → ${signalLabelOut(dst)}`;
 
           const isActive = getCellState(src, dst);
+          const destPid = portId(dst.cge, dst.ch);
+          const srcPid = portId(src.cge, src.ch);
+          const isPending = isRoutePending(destPid, srcPid);
+          const isRemoving = isRemovalPending(destPid);
+
           if (isActive) {
             button.classList.add("active");
           }
+          if (isPending) {
+            button.classList.add("pending");
+          }
+          if (isActive && isRemoving) {
+            button.classList.add("removing");
+          }
 
           button.addEventListener("click", () => {
-            setSelectedStatus(src, dst, isActive);
+            if (isActive && isRemoving) {
+              // Already queued for removal — undo
+              removeFromQueue(destPid, 0);
+              button.classList.remove("removing");
+              setStatus(`Cancelled removal: ${signalLabelOut(dst)}`);
+            } else if (isActive) {
+              // Queue removal of this active route
+              addToQueue(destPid, 0, signalLabelOut(dst), "DISCONNECT");
+              button.classList.add("removing");
+              setStatus(`Queued removal: ${signalLabelOut(dst)}`);
+            } else if (isRoutePending(destPid, srcPid)) {
+              removeFromQueue(destPid, srcPid);
+              button.classList.remove("pending");
+              setStatus(`Removed from queue: ${signalLabelIn(src)} → ${signalLabelOut(dst)}`);
+            } else {
+              addToQueue(destPid, srcPid, signalLabelOut(dst), signalLabelIn(src));
+              button.classList.add("pending");
+              setStatus(`Queued: ${signalLabelIn(src)} → ${signalLabelOut(dst)}`);
+            }
           });
 
           td.appendChild(button);
@@ -293,13 +792,16 @@
       container.appendChild(table);
     }
 
+    /* ─── Card filter buttons ─── */
     function renderCardButtons() {
       cardButtons.innerHTML = "";
       state.cards.forEach((card) => {
         const button = document.createElement("button");
         button.type = "button";
-        button.className = `small-btn card-btn ${state.selectedCards.has(card) ? "active" : ""}`;
-        button.textContent = `Card ${card}`;
+        button.className = `pill-btn card-btn ${state.selectedCards.has(card) ? "active" : ""}`;
+        /* Count routes for this card */
+        const routeCount = state.routes.filter(r => r.src_card === card || r.dst_card === card).length;
+        button.innerHTML = `Card ${card} <span class="card-count">${routeCount}</span>`;
         button.addEventListener("click", () => {
           state.cardsTouched = true;
           if (state.selectedCards.has(card)) {
@@ -347,52 +849,43 @@
         return;
       }
 
-      const sources = state.sources.filter((signal) => signal.card === state.srcPairCard && isInRange(signal.port));
-      const destinations = state.destinations.filter((signal) => signal.card === state.dstPairCard && isInRange(signal.port));
+      const sources = generateCardPorts(state.srcPairCard).filter(s => isInRange(s));
+      const destinations = generateCardPorts(state.dstPairCard).filter(s => isInRange(s));
 
       renderMatrixInto(pairScroller, sources, destinations);
     }
 
     function compareRoutes(a, b) {
       if (state.sortBy === "src-card") {
-        return (a.src_card - b.src_card) || (a.src_port - b.src_port) || (a.src_id - b.src_id);
+        return (a.src_card - b.src_card) || (portId(a.src_cge, a.src_ch) - portId(b.src_cge, b.src_ch));
       }
       if (state.sortBy === "dst-card") {
-        return (a.dst_card - b.dst_card) || (a.dst_port - b.dst_port) || (a.dst_id - b.dst_id);
+        return (a.dst_card - b.dst_card) || (portId(a.dst_cge, a.dst_ch) - portId(b.dst_cge, b.dst_ch));
       }
-      return (a.src_port - b.src_port)
-        || (a.dst_port - b.dst_port)
-        || (a.src_id - b.src_id)
-        || (a.dst_id - b.dst_id);
+      /* sort by port ID */
+      return (portId(a.src_cge, a.src_ch) - portId(b.src_cge, b.src_ch))
+        || (portId(a.dst_cge, a.dst_ch) - portId(b.dst_cge, b.dst_ch));
     }
 
-    function routeText(route) {
-      return `Card ${route.dst_card} | p${route.dst_port} id${route.dst_id} <- Card ${route.src_card} | p${route.src_port} id${route.src_id}`;
-    }
-
+    /* ─── Active routes table ─── */
     function renderActiveRoutesView() {
       const query = state.searchText.trim().toLowerCase();
 
       let routes = state.routes.filter((route) => {
-        const nonTrivial = !(route.src_port === route.dst_port && route.src_id === route.dst_id && route.src_card === route.dst_card);
-        if (!nonTrivial) {
-          return false;
-        }
-
         const cardAllowed = state.selectedCards.has(route.src_card) && state.selectedCards.has(route.dst_card);
-        const rangeAllowed = isInRange(route.src_port) && isInRange(route.dst_port);
+        const rangeAllowed = isRouteInRange(route.src_cge, route.src_ch) && isRouteInRange(route.dst_cge, route.dst_ch);
         return cardAllowed && rangeAllowed;
       });
 
       if (query) {
         routes = routes.filter((route) => {
+          const srcPort = portId(route.src_cge, route.src_ch);
+          const dstPort = portId(route.dst_cge, route.dst_ch);
           const haystack = [
             String(route.src_card),
             String(route.dst_card),
-            String(route.src_port),
-            String(route.dst_port),
-            String(route.src_id),
-            String(route.dst_id),
+            String(srcPort),
+            String(dstPort),
           ].join(" ").toLowerCase();
           return haystack.includes(query);
         });
@@ -401,19 +894,42 @@
       routes.sort(compareRoutes);
 
       if (!routes.length) {
-        activeRoutesContainer.innerHTML = '<div class="empty">No active non-trivial routes for the current filters.</div>';
+        activeRoutesContainer.innerHTML = '<div class="empty">No routes for the current filters.</div>';
         return;
       }
 
       const table = document.createElement("table");
       table.className = "active-table";
+      const thead = document.createElement("thead");
+      const headRow = document.createElement("tr");
+      ["Destination", "", "Source"].forEach((label) => {
+        const th = document.createElement("th");
+        th.textContent = label;
+        headRow.appendChild(th);
+      });
+      thead.appendChild(headRow);
+      table.appendChild(thead);
+
       const tbody = document.createElement("tbody");
 
       routes.forEach((route) => {
         const row = document.createElement("tr");
-        const cell = document.createElement("td");
-        cell.textContent = routeText(route);
-        row.appendChild(cell);
+
+        const dstCell = document.createElement("td");
+        dstCell.className = "route-dst";
+        dstCell.innerHTML = `<span class="card-tag">C${route.dst_card}</span> Port ${portId(route.dst_cge, route.dst_ch)} <span class="rel-port">OUT${relPort(route.dst_cge, route.dst_ch)}</span>`;
+        row.appendChild(dstCell);
+
+        const arrowCell = document.createElement("td");
+        arrowCell.className = "route-arrow";
+        arrowCell.innerHTML = '<svg width="18" height="12" viewBox="0 0 18 12" fill="none" stroke="var(--cyan)" stroke-width="1.5" stroke-linecap="round"><line x1="3" y1="6" x2="18" y2="6"/><polyline points="7,2 3,6 7,10"/></svg>';
+        row.appendChild(arrowCell);
+
+        const srcCell = document.createElement("td");
+        srcCell.className = "route-src";
+        srcCell.innerHTML = `<span class="card-tag">C${route.src_card}</span> Port ${portId(route.src_cge, route.src_ch)} <span class="rel-port">IN${relPort(route.src_cge, route.src_ch)}</span>`;
+        row.appendChild(srcCell);
+
         tbody.appendChild(row);
       });
 
@@ -422,13 +938,14 @@
       activeRoutesContainer.appendChild(table);
     }
 
+    /* ─── View toggling ─── */
     function setActiveView(view) {
       state.activeView = view;
       Object.entries(views).forEach(([name, section]) => {
         section.classList.toggle("active", name === view);
       });
 
-      Array.from(viewButtons.querySelectorAll(".view-btn")).forEach((button) => {
+      Array.from(viewButtons.querySelectorAll(".tab-btn")).forEach((button) => {
         button.classList.toggle("active", button.dataset.view === view);
       });
     }
@@ -439,6 +956,7 @@
       renderActiveRoutesView();
     }
 
+    /* ─── Range filter ─── */
     function readRangeInput(input) {
       const text = input.value.trim();
       if (!text) {
@@ -457,36 +975,54 @@
 
       const validNumbers = [from, to].every((value) => value === null || Number.isInteger(value));
       if (!validNumbers) {
-        setStatus("Selected: invalid range. Use integers only.");
+        setStatus("Invalid range — use integers only.");
         return;
       }
 
       const bounded = [from, to].every((value) => value == null || (value >= 1 && value <= 384));
       if (!bounded) {
-        setStatus("Selected: invalid range. Values must be between 1 and 384.");
+        setStatus("Invalid range — Port IDs must be between 1 and 384.");
         return;
       }
 
       if (from != null && to != null && from > to) {
-        setStatus("Selected: invalid range. From must be less than or equal to To.");
+        setStatus("Invalid range — From must be ≤ To.");
         return;
       }
 
       state.fromPort = from;
       state.toPort = to;
       renderAllViews();
-      setStatus("Selected: port range filter applied.");
+      setStatus("Port range filter applied.");
     }
 
+    function clearRange() {
+      portFromInput.value = "";
+      portToInput.value = "";
+      state.fromPort = null;
+      state.toPort = null;
+      renderAllViews();
+      setStatus("Port range filter cleared.");
+    }
+
+    /* ─── Data fetching ─── */
     async function fetchRoutes() {
       refreshBtn.disabled = true;
+      refreshBtn.classList.add("spinning");
 
       try {
-        const response = await fetch(API_URL, { cache: "no-store" });
-        const payload = await response.json();
+        let payload;
 
-        if (!response.ok) {
-          throw new Error(payload.error || "Unknown error");
+        if (DEMO_MODE) {
+          // Simulate a short network round-trip so the spinner is visible
+          await new Promise(resolve => setTimeout(resolve, 350));
+          payload = generateDummyData();
+        } else {
+          const response = await fetch(API_URL, { cache: "no-store" });
+          payload = await response.json();
+          if (!response.ok) {
+            throw new Error(payload.error || "Unknown error");
+          }
         }
 
         state.routes = Array.isArray(payload.routes) ? payload.routes : [];
@@ -503,21 +1039,26 @@
         }
 
         hydrateRouteMap(state.routes);
+        updateStats();
         renderCardButtons();
         renderCardPairSelectors();
         renderAllViews();
 
-        updateLastUpdated(payload.fetched_at || new Date().toISOString());
+        const etTime = new Date(payload.fetched_at || new Date().toISOString())
+          .toLocaleString("en-US", { timeZone: "America/New_York", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true });
+        updateLastUpdated(etTime + " ET");
         markLiveState(true);
       } catch (error) {
         markLiveState(false);
         updateLastUpdated(`fetch failed (${new Date().toLocaleTimeString()})`);
-        setStatus(`Selected: data fetch error - ${error.message}`);
+        setStatus(`Data fetch error — ${error.message}`);
       } finally {
         refreshBtn.disabled = false;
+        refreshBtn.classList.remove("spinning");
       }
     }
 
+    /* ─── Event listeners ─── */
     refreshBtn.addEventListener("click", fetchRoutes);
 
     allCardsBtn.addEventListener("click", () => {
@@ -535,6 +1076,7 @@
     });
 
     applyRangeBtn.addEventListener("click", applyRange);
+    clearRangeBtn.addEventListener("click", clearRange);
 
     viewButtons.addEventListener("click", (event) => {
       const button = event.target.closest("button[data-view]");
@@ -564,6 +1106,81 @@
       renderActiveRoutesView();
     });
 
+    /* ─── Keyboard shortcut: Enter to apply range ─── */
+    portFromInput.addEventListener("keydown", (e) => { if (e.key === "Enter") applyRange(); });
+    portToInput.addEventListener("keydown", (e) => { if (e.key === "Enter") applyRange(); });
+
+    /* ─── Set Route event listeners ─── */
+    document.querySelectorAll("[data-input-mode]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("[data-input-mode]").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        document.getElementById("portIdForm").hidden = btn.dataset.inputMode !== "port-id";
+        document.getElementById("cardRelForm").hidden = btn.dataset.inputMode !== "card-rel";
+      });
+    });
+
+    document.getElementById("addRouteByIdBtn").addEventListener("click", addRouteByPortId);
+    document.getElementById("addRouteByCardBtn").addEventListener("click", addRouteByCard);
+    document.getElementById("removeRouteByIdBtn").addEventListener("click", removeRouteByPortId);
+    document.getElementById("removeRouteByCardBtn").addEventListener("click", removeRouteByCard);
+    document.getElementById("clearQueueBtn").addEventListener("click", clearQueue);
+    document.getElementById("applyRoutesBtn").addEventListener("click", applyRoutes);
+
+    document.getElementById("queueList").addEventListener("click", (e) => {
+      const btn = e.target.closest(".queue-remove-btn");
+      if (!btn) return;
+      const dest = parseInt(btn.dataset.dest, 10);
+      const src = parseInt(btn.dataset.src, 10);
+      removeFromQueue(dest, src);
+      renderAllViews();
+    });
+
+    /* Enter key for route input fields */
+    document.getElementById("destPortInput").addEventListener("keydown", (e) => { if (e.key === "Enter") addRouteByPortId(); });
+    document.getElementById("srcPortInput").addEventListener("keydown", (e) => { if (e.key === "Enter") addRouteByPortId(); });
+    document.getElementById("destCardInput").addEventListener("keydown", (e) => { if (e.key === "Enter") addRouteByCard(); });
+    document.getElementById("destRelInput").addEventListener("keydown", (e) => { if (e.key === "Enter") addRouteByCard(); });
+    document.getElementById("srcCardInput").addEventListener("keydown", (e) => { if (e.key === "Enter") addRouteByCard(); });
+    document.getElementById("srcRelInput").addEventListener("keydown", (e) => { if (e.key === "Enter") addRouteByCard(); });
+
+    /* ─── Drag-to-pan for matrix scrollers ─── */
+    function enableDragScroll(el) {
+      let isDragging = false;
+      let startX, startY, scrollLeft0, scrollTop0;
+
+      el.addEventListener("mousedown", (e) => {
+        if (e.button !== 0 || e.target.closest("button, a, select, input")) return;
+        isDragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        scrollLeft0 = el.scrollLeft;
+        scrollTop0 = el.scrollTop;
+        el.classList.add("grabbing");
+      });
+
+      window.addEventListener("mousemove", (e) => {
+        if (!isDragging) return;
+        e.preventDefault();
+        el.scrollLeft = scrollLeft0 - (e.clientX - startX);
+        el.scrollTop  = scrollTop0  - (e.clientY - startY);
+      });
+
+      window.addEventListener("mouseup", () => {
+        if (!isDragging) return;
+        isDragging = false;
+        el.classList.remove("grabbing");
+      });
+    }
+
+    enableDragScroll(matrixScroller);
+    enableDragScroll(pairScroller);
+
+    /* ─── Boot ─── */
+    if (DEMO_MODE) {
+      const banner = document.getElementById("demoBanner");
+      banner.hidden = false;
+    }
     fetchRoutes();
     setInterval(fetchRoutes, POLL_INTERVAL_MS);
   </script>

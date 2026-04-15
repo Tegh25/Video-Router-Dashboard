@@ -1,7 +1,9 @@
-# Python cache/bytecode
+# Python cache/bytecode/packages
 __pycache__/
 *.py[cod]
 *$py.class
+wheels/
+NUL
 
 # Virtual environments
 .venv/
